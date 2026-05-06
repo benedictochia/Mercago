@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Cloudinary\Cloudinary;
+use Cloudinary\Configuration\Configuration;
 
 class ProductController extends Controller
 {
@@ -32,7 +34,7 @@ class ProductController extends Controller
         $validated['vendor_id'] = (string) $request->user()->id;
 
         if ($request->hasFile('image')) {
-            $validated['image'] = \CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary::upload($request->file('image')->getRealPath(), ['folder' => 'products'])->getSecurePath();
+            $validated['image'] = $this->uploadToCloudinary($request->file('image')->getRealPath(), 'products');
         }
 
         $product = Product::create($validated);
@@ -64,7 +66,7 @@ class ProductController extends Controller
 
         if ($request->hasFile('image')) {
             // Optional: delete old image if needed, but for now we just overwrite the DB field
-            $validated['image'] = \CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary::upload($request->file('image')->getRealPath(), ['folder' => 'products'])->getSecurePath();
+            $validated['image'] = $this->uploadToCloudinary($request->file('image')->getRealPath(), 'products');
         }
 
         $product->update($validated);
@@ -90,5 +92,26 @@ class ProductController extends Controller
         return response()->json([
             'message' => 'Product deleted successfully.',
         ]);
+    }
+
+    /**
+     * Upload a file to Cloudinary using explicit credentials from env vars.
+     */
+    private function uploadToCloudinary(string $filePath, string $folder): string
+    {
+        $cloudinary = new Cloudinary(
+            Configuration::instance([
+                'cloud' => [
+                    'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                    'api_key'    => env('CLOUDINARY_KEY'),
+                    'api_secret' => env('CLOUDINARY_SECRET'),
+                ],
+                'url' => ['secure' => true],
+            ])
+        );
+
+        $result = $cloudinary->uploadApi()->upload($filePath, ['folder' => $folder]);
+
+        return $result['secure_url'];
     }
 }

@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Cloudinary\Cloudinary;
+use Cloudinary\Configuration\Configuration;
 
 class AuthController extends Controller
 {
@@ -80,7 +82,18 @@ class AuthController extends Controller
         $user = $request->user();
 
         if ($request->hasFile('banner')) {
-            $user->banner_url = \CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary::upload($request->file('banner')->getRealPath(), ['folder' => 'banners'])->getSecurePath();
+            $cloudinary = new Cloudinary(
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                        'api_key'    => env('CLOUDINARY_KEY'),
+                        'api_secret' => env('CLOUDINARY_SECRET'),
+                    ],
+                    'url' => ['secure' => true],
+                ])
+            );
+            $result = $cloudinary->uploadApi()->upload($request->file('banner')->getRealPath(), ['folder' => 'banners']);
+            $user->banner_url = $result['secure_url'];
             $user->save();
         }
 
