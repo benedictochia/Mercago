@@ -32,7 +32,7 @@ class ProductController extends Controller
         $validated['vendor_id'] = (string) $request->user()->id;
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->storeOnCloudinary('products')->getSecurePath();
+            $validated['image'] = \CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary::upload($request->file('image')->getRealPath(), ['folder' => 'products'])->getSecurePath();
         }
 
         $product = Product::create($validated);
@@ -64,7 +64,7 @@ class ProductController extends Controller
 
         if ($request->hasFile('image')) {
             // Optional: delete old image if needed, but for now we just overwrite the DB field
-            $validated['image'] = $request->file('image')->storeOnCloudinary('products')->getSecurePath();
+            $validated['image'] = \CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary::upload($request->file('image')->getRealPath(), ['folder' => 'products'])->getSecurePath();
         }
 
         $product->update($validated);

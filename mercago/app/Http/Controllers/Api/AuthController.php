@@ -80,7 +80,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         if ($request->hasFile('banner')) {
-            $user->banner_url = $request->file('banner')->storeOnCloudinary('banners')->getSecurePath();
+            $user->banner_url = \CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary::upload($request->file('banner')->getRealPath(), ['folder' => 'banners'])->getSecurePath();
             $user->save();
         }
 
