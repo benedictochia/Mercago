@@ -392,7 +392,7 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
                 {vendor.banner_url && (
                   <div style={{ marginBottom: '2rem', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', background: '#fff' }}>
                     <img
-                      src={`${API_BASE_URL}${vendor.banner_url}`}
+                      src={vendor.banner_url?.startsWith('http') ? vendor.banner_url : `${API_BASE_URL}${vendor.banner_url}`}
                       alt={`${vendor.vendor_name} Banner`}
                       style={{ width: '100%', height: '300px', objectFit: 'cover', display: 'block' }}
                     />
@@ -450,7 +450,7 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
                     {bannerVendors.map(vendor => (
                       <div key={vendor.vendor_id} style={{ width: `${100 / bannerVendors.length}%`, flexShrink: 0 }}>
                         <img
-                          src={`${API_BASE_URL}${vendor.banner_url}`}
+                          src={vendor.banner_url?.startsWith('http') ? vendor.banner_url : `${API_BASE_URL}${vendor.banner_url}`}
                           alt={`${vendor.vendor_name} Banner`}
                           onClick={() => setSelectedVendorId(vendor.vendor_id)}
                           style={{ width: '100%', height: '300px', objectFit: 'cover', display: 'block', cursor: 'pointer' }}

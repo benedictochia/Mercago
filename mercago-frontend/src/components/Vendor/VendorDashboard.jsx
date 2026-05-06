@@ -1406,7 +1406,11 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
             {currentUser.banner_url && (
               <div style={{ marginBottom: '1rem' }}>
                 <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: '0 0 0.5rem' }}>Current Banner:</p>
-                <img src={`${API_BASE_URL}${currentUser.banner_url}`} alt="Current Banner" style={{ width: '100%', height: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                <img 
+                  src={currentUser.banner_url?.startsWith('http') ? currentUser.banner_url : `${API_BASE_URL}${currentUser.banner_url}`} 
+                  alt="Current Banner" 
+                  style={{ width: '100%', height: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }} 
+                />
               </div>
             )}
 

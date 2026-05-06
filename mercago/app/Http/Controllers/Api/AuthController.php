@@ -80,8 +80,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         if ($request->hasFile('banner')) {
-            $path = $request->file('banner')->store('banners', 'public');
-            $user->banner_url = '/storage/' . $path;
+            $user->banner_url = $request->file('banner')->storeOnCloudinary('banners')->getSecurePath();
             $user->save();
         }
 
