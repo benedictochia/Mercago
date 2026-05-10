@@ -12,6 +12,14 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // ── Public (no auth required) ──────────────────────────────────────────────
 Route::get('/public/shop', [OrderController::class, 'shop']);
+Route::get('/public/debug-env', function () {
+    return response()->json([
+        'CLOUDINARY_CLOUD_NAME' => env('CLOUDINARY_CLOUD_NAME'),
+        'CLOUDINARY_KEY' => env('CLOUDINARY_KEY'),
+        'CLOUDINARY_SECRET' => env('CLOUDINARY_SECRET'),
+        'config_cloudinary_url' => config('cloudinary.cloud_url')
+    ]);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);

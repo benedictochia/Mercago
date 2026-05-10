@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Cloudinary\Cloudinary;
-use Cloudinary\Configuration\Configuration;
 
 class ProductController extends Controller
 {
@@ -99,16 +98,7 @@ class ProductController extends Controller
      */
     private function uploadToCloudinary(string $filePath, string $folder): string
     {
-        $cloudinary = new Cloudinary(
-            Configuration::instance([
-                'cloud' => [
-                    'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
-                    'api_key'    => env('CLOUDINARY_KEY'),
-                    'api_secret' => env('CLOUDINARY_SECRET'),
-                ],
-                'url' => ['secure' => true],
-            ])
-        );
+        $cloudinary = new Cloudinary(config('cloudinary.cloud_url'));
 
         $result = $cloudinary->uploadApi()->upload($filePath, ['folder' => $folder]);
 
