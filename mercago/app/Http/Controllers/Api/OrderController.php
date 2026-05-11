@@ -123,6 +123,14 @@ class OrderController extends Controller
             }
         });
 
+        // Log the activity
+        $totalItems = collect($request->items)->sum('quantity');
+        \App\Models\ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'action' => 'place_order',
+            'description' => "Shopper placed an order for {$totalItems} items across " . count($groupedByVendor) . " vendor(s)."
+        ]);
+
         return response()->json([
             'message' => 'Order placed successfully!',
             'orders'  => $createdOrders,

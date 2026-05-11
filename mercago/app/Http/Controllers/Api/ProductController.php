@@ -38,6 +38,13 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
+        // Log the activity
+        \App\Models\ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'action' => 'create_product',
+            'description' => "Vendor added a new product: {$product->product_name}."
+        ]);
+
         return response()->json([
             'message' => 'Product created successfully.',
             'data' => $product,
@@ -64,7 +71,10 @@ class ProductController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            // Optional: delete old image if needed, but for now we just overwrite the DB field
+            // Delete old image from Cloudinary
+            if ($product->image) {
+                $this->deleteFromCloudinary($product->image);
+            }
             $validated['image'] = $this->uploadToCloudinary($request->file('image')->getRealPath(), 'products');
         }
 
@@ -86,7 +96,20 @@ class ProductController extends Controller
             ], 403);
         }
 
+        // Delete image from Cloudinary before deleting product
+        if ($product->image) {
+            $this->deleteFromCloudinary($product->image);
+        }
+
+        $productName = $product->product_name;
         $product->delete();
+
+        // Log the activity
+        \App\Models\ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'action' => 'delete_product',
+            'description' => "Vendor deleted product: {$productName}."
+        ]);
 
         return response()->json([
             'message' => 'Product deleted successfully.',
@@ -102,6 +125,24 @@ class ProductController extends Controller
 
         $result = $cloudinary->uploadApi()->upload($filePath, ['folder' => $folder]);
 
-        return $result['secure_url'];
+        // Insert optimization transformations (WebP, auto-quality, max-width) into the URL
+        return str_replace('/upload/', '/upload/q_auto,f_auto,w_800,c_limit/', $result['secure_url']);
+    }
+
+    /**
+     * Delete an image from Cloudinary using its URL.
+     */
+    private function deleteFromCloudinary(string $url): void
+    {
+        try {
+            // Extract public_id (e.g., 'products/filename' or 'banners/filename')
+            if (preg_match('/(products\/[^\.]+)/', $url, $matches)) {
+                $publicId = $matches[1];
+                $cloudinary = new Cloudinary(config('cloudinary.cloud_url'));
+                $cloudinary->uploadApi()->destroy($publicId);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to delete from Cloudinary: " . $e->getMessage());
+        }
     }
 }

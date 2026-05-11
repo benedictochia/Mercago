@@ -56,6 +56,13 @@ class AuthController extends Controller
 
         $token = $user->createToken('api-token')->plainTextToken;
 
+        // Log the activity
+        \App\Models\ActivityLog::create([
+            'user_id' => $user->id,
+            'action' => 'login',
+            'description' => "User {$user->first_name} {$user->last_name} logged into the system."
+        ]);
+
         return response()->json([
             'message' => 'Login successful.',
             'token' => $token,
