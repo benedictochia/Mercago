@@ -1033,6 +1033,10 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
   const [myReviews, setMyReviews] = useState([])
   const [myAvgRating, setMyAvgRating] = useState(0)
 
+  // Activity Logs State
+  const [activityLogs, setActivityLogs] = useState([])
+  const [activityLogsLoading, setActivityLogsLoading] = useState(false)
+
   const authHeaders = {
     Authorization: `Bearer ${token}`,
     Accept: 'application/json',
@@ -1157,11 +1161,24 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
     } catch { /* silent */ }
   }
 
+  const fetchActivityLogs = async () => {
+    if (!token) return
+    setActivityLogsLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/reports/activity`, { headers: authHeaders })
+      if (!res.ok) return
+      const d = await res.json()
+      setActivityLogs(Array.isArray(d) ? d : [])
+    } catch { /* silent */ }
+    finally { setActivityLogsLoading(false) }
+  }
+
   useEffect(() => {
     if (!token) return
     fetchProducts()
     fetchVendorOrders()
     fetchVendorReviews()
+    fetchActivityLogs()
   }, [token])
 
   return (
@@ -1194,6 +1211,7 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
         <button className={vendorTab === 'products' ? 'tab active' : 'tab'} type="button" onClick={() => setVendorTab('products')}>My Products</button>
         <button className={vendorTab === 'sales' ? 'tab active' : 'tab'} type="button" onClick={() => { setVendorTab('sales'); fetchVendorOrders() }}>Sales History</button>
         <button className={vendorTab === 'profile' ? 'tab active' : 'tab'} type="button" onClick={() => setVendorTab('profile')}>Store Profile</button>
+        <button className={vendorTab === 'activity' ? 'tab active' : 'tab'} type="button" onClick={() => { setVendorTab('activity'); fetchActivityLogs() }}>Activity Log</button>
       </div>
 
       {vendorTab === 'analytics' && (
@@ -1457,6 +1475,54 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {vendorTab === 'activity' && (
+        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0 }}>Activity Log</h3>
+            <button type="button" className="secondary-btn" onClick={fetchActivityLogs}>Refresh</button>
+          </div>
+          <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '1rem' }}>
+            A detailed trail of your recent actions on the platform.
+          </p>
+
+          {activityLogsLoading ? (
+            <p>Loading activity logs...</p>
+          ) : activityLogs.length === 0 ? (
+            <p className="empty-note">No activity recorded yet.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Action Type</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activityLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.85rem', color: '#475569' }}>
+                        {new Date(log.created_at).toLocaleString()}
+                      </td>
+                      <td>
+                        <span style={{ 
+                          background: '#f1f5f9', color: '#334155', 
+                          padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' 
+                        }}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.9rem', color: '#111' }}>{log.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </section>
