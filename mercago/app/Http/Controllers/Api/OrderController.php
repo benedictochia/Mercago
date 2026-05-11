@@ -57,34 +57,33 @@ class OrderController extends Controller
         $request->validate([
             'items'             => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
-            'items.*.quantity'  => ['required', 'integer', 'min:1'],
+            'items.*.quantity'  => ['required', 'numeric', 'min:0.001'],
         ]);
 
         // Group cart items by vendor so we create one Order per vendor
         $productIds = collect($request->items)->pluck('product_id');
-        $products   = Product::whereIn('id', $productIds)->with('vendor')->get()->keyBy('id');
-
-        // Validate stock first before touching anything
-        foreach ($request->items as $item) {
-            $product = $products->get($item['product_id']);
-            if (!$product) {
-                return response()->json(['message' => "Product not found."], 404);
-            }
-            if ($product->stock_qty < $item['quantity']) {
-                return response()->json([
-                    'message' => "Insufficient stock for \"{$product->product_name}\". Only {$product->stock_qty} left.",
-                ], 422);
-            }
-        }
-
-        // Group cart items by vendor_id
-        $groupedByVendor = collect($request->items)->groupBy(function ($item) use ($products) {
-            return $products->get($item['product_id'])->vendor_id;
-        });
 
         $createdOrders = [];
 
-        DB::transaction(function () use ($request, $products, $groupedByVendor, &$createdOrders) {
+        DB::transaction(function () use ($request, $productIds, &$createdOrders) {
+            // Lock products for update to prevent race conditions
+            $products = Product::whereIn('id', $productIds)->lockForUpdate()->with('vendor')->get()->keyBy('id');
+
+            // Validate stock inside the transaction
+            foreach ($request->items as $item) {
+                $product = $products->get($item['product_id']);
+                if (!$product) {
+                    throw new \Exception("Product not found.");
+                }
+                if ($product->stock_qty < $item['quantity']) {
+                    throw new \Exception("Insufficient stock for \"{$product->product_name}\". Only {$product->stock_qty} left.");
+                }
+            }
+
+            // Group cart items by vendor_id
+            $groupedByVendor = collect($request->items)->groupBy(function ($item) use ($products) {
+                return $products->get($item['product_id'])->vendor_id;
+            });
             foreach ($groupedByVendor as $vendorId => $vendorItems) {
                 $totalAmount = 0;
                 $orderItemsData = [];
@@ -121,15 +120,15 @@ class OrderController extends Controller
 
                 $createdOrders[] = $order->load('items', 'vendor');
             }
+            
+            // Log the activity inside the transaction to ensure it's recorded only on success
+            $totalItems = collect($request->items)->sum('quantity');
+            \App\Models\ActivityLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'place_order',
+                'description' => "Shopper placed an order for {$totalItems} items across " . count($groupedByVendor) . " vendor(s)."
+            ]);
         });
-
-        // Log the activity
-        $totalItems = collect($request->items)->sum('quantity');
-        \App\Models\ActivityLog::create([
-            'user_id' => $request->user()->id,
-            'action' => 'place_order',
-            'description' => "Shopper placed an order for {$totalItems} items across " . count($groupedByVendor) . " vendor(s)."
-        ]);
 
         return response()->json([
             'message' => 'Order placed successfully!',

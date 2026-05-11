@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 use Cloudinary\Cloudinary;
 
 class AuthController extends Controller
@@ -23,7 +24,7 @@ class AuthController extends Controller
             'age' => ['required', 'integer', 'min:1'],
             'sex' => ['required', 'string', 'max:10'],
             'address' => ['required', 'string'],
-            'role' => ['required', 'string', 'max:50'],
+            'role' => ['required', 'string', Rule::in(['shopper', 'vendor', 'rider'])],
         ]);
 
         // Explicit bcrypt hashing for task requirement.

@@ -40,18 +40,24 @@ class RiderController extends Controller
      */
     public function acceptOrder(Request $request, string $id)
     {
-        $order = Order::where('id', $id)
+        $updated = DB::table('orders')
+            ->where('id', $id)
             ->where('delivery_status', 'finding_rider')
-            ->firstOrFail();
+            ->update([
+                'rider_id'        => $request->user()->id,
+                'delivery_status' => 'found_rider', // The rider accepted, now heading to vendor
+                'updated_at'      => now(),
+            ]);
 
-        $order->update([
-            'rider_id'        => $request->user()->id,
-            'delivery_status' => 'ongoing', // Immediately on the way
-        ]);
+        if (!$updated) {
+            return response()->json(['message' => 'Order already accepted by another rider or no longer available.'], 409);
+        }
+
+        $order = Order::with(['shopper', 'vendor', 'items'])->find($id);
 
         return response()->json([
-            'message' => 'Order accepted! Head to the vendor and deliver the order.',
-            'order'   => $this->formatOrder($order->fresh(['shopper', 'vendor', 'items'])),
+            'message' => 'Order accepted! Head to the vendor.',
+            'order'   => $this->formatOrder($order),
         ]);
     }
 

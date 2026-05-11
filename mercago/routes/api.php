@@ -32,11 +32,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/orders/{id}/ready', [OrderController::class, 'markReady']); // Vendor: mark order ready for pickup
     });
 
+    Route::get('/orders/history', [OrderController::class, 'history']);
+
     // ── Shopper Routes ───────────────────────────────────────────────────────
     Route::middleware('role:shopper')->group(function () {
         Route::get('/shop', [OrderController::class, 'shop']);
         Route::post('/orders', [OrderController::class, 'store']);
-        Route::get('/orders/history', [OrderController::class, 'history']);
     });
 
     // ── Rider Routes ─────────────────────────────────────────────────────────
