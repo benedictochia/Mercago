@@ -26,7 +26,7 @@ class ProductController extends Controller
             'category' => ['required', 'string', 'max:100'],
             'price' => ['required', 'numeric', 'min:0'],
             'unit' => ['required', 'string', 'max:50'],
-            'stock_qty' => ['required', 'integer', 'min:0'],
+            'stock_qty' => ['required', 'numeric', 'min:0'],
             'image' => ['nullable', 'image', 'max:5120'],
         ]);
 
@@ -66,7 +66,7 @@ class ProductController extends Controller
             'category' => ['sometimes', 'required', 'string', 'max:100'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0'],
             'unit' => ['sometimes', 'required', 'string', 'max:50'],
-            'stock_qty' => ['sometimes', 'required', 'integer', 'min:0'],
+            'stock_qty' => ['sometimes', 'required', 'numeric', 'min:0'],
             'image' => ['nullable', 'image', 'max:5120'],
         ]);
 
