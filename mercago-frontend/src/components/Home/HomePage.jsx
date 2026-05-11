@@ -154,12 +154,24 @@ function AllListingsSection({ allProducts, loading, handleAddToCart, addedProduc
               <div style={{ color: '#6b7280', fontSize: '0.8rem', marginBottom: 'auto' }}>🏪 {product.vendorName}</div>
               <div style={{ color: '#9ca3af', fontSize: '0.75rem', marginBottom: '12px' }}>{product.category}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, color: '#1e3a8a', fontSize: '1.05rem' }}>₱{Number(product.price).toFixed(2)}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleAddToCart(product, product.vendorName); }}
-                  style={{ background: addedProductId === product.id ? '#059669' : '#e0f2fe', color: addedProductId === product.id ? '#fff' : '#0284c7', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem', transition: 'all 0.2s' }}>
-                  {addedProductId === product.id ? '✓ Added' : '+ Add'}
-                </button>
+                <span style={{ fontWeight: 700, color: '#1e3a8a', fontSize: '1.05rem' }}>₱{Number(product.price).toFixed(2)} <span style={{ fontSize: '0.78rem', fontWeight: 500, color: '#6b7280' }}>/ {product.unit}</span></span>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input 
+                    type="number" 
+                    step="any" 
+                    min="0.001" 
+                    placeholder="Qty" 
+                    value={quantities[product.id] || ''} 
+                    onChange={(e) => setQuantities({ ...quantities, [product.id]: e.target.value })}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', textAlign: 'center' }} 
+                  />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAddToCart(product, product.vendorName); }}
+                    style={{ background: addedProductId === product.id ? '#059669' : '#e0f2fe', color: addedProductId === product.id ? '#fff' : '#0284c7', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem', transition: 'all 0.2s' }}>
+                    {addedProductId === product.id ? '✓ Added' : '+ Add'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -242,7 +254,9 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
   useEffect(() => {
     setCartCount(getCartCount())
   }, [currentUser])
+  
   const [selectedProductForModal, setSelectedProductForModal] = useState(null)
+  const [quantities, setQuantities] = useState({})
 
   const handleAddToCart = (product, vendorName) => {
     if (!currentUser || currentUser.role !== 'shopper') {
@@ -250,14 +264,15 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
       return
     }
     // Add to localStorage cart so ShopperDashboard picks it up (per-user key)
+    const addQty = parseFloat(quantities[product.id]) || 1;
     const key = `mercago_cart_${currentUser.id}`
     const cart = (() => { try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] } })()
     const existing = cart.find((i) => i.product.id === product.id)
     let updatedCart
     if (existing) {
-      updatedCart = cart.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
+      updatedCart = cart.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + addQty } : i)
     } else {
-      updatedCart = [...cart, { product: { ...product, vendorName }, quantity: 1 }]
+      updatedCart = [...cart, { product: { ...product, vendorName }, quantity: addQty }]
     }
     localStorage.setItem(key, JSON.stringify(updatedCart))
     setCartCount(updatedCart.reduce((sum, item) => sum + (item.quantity || 0), 0))
@@ -554,11 +569,23 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
                             <div style={{ color: '#6b7280', fontSize: '0.8rem', marginBottom: 'auto' }}>{product.category}</div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                               <span style={{ fontWeight: 700, color: '#1e3a8a', fontSize: '1.05rem' }}>₱{Number(product.price).toFixed(2)} <span style={{ fontSize: '0.78rem', fontWeight: 500, color: '#6b7280' }}>/ {product.unit}</span></span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleAddToCart(product, vendor.vendor_name); }}
-                                style={{ background: addedProductId === product.id ? '#059669' : '#e0f2fe', color: addedProductId === product.id ? '#fff' : '#0284c7', border: 'none', borderRadius: '6px', padding: '6px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}>
-                                {addedProductId === product.id ? '✓ Added' : '+ Add'}
-                              </button>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <input 
+                                  type="number" 
+                                  step="any" 
+                                  min="0.001" 
+                                  placeholder="Qty" 
+                                  value={quantities[product.id] || ''} 
+                                  onChange={(e) => setQuantities({ ...quantities, [product.id]: e.target.value })}
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', textAlign: 'center' }} 
+                                />
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleAddToCart(product, vendor.vendor_name, quantities[product.id]); }}
+                                  style={{ background: addedProductId === product.id ? '#059669' : '#e0f2fe', color: addedProductId === product.id ? '#fff' : '#0284c7', border: 'none', borderRadius: '6px', padding: '6px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}>
+                                  {addedProductId === product.id ? '✓ Added' : '+ Add'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
