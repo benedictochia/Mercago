@@ -12,11 +12,12 @@ class ReportController extends Controller
      * Generates a report of user activity logs.
      * EXPLICITLY uses Query Builder Joins for academic demonstration (Task 4).
      */
-    public function getActivityLogs()
+    public function getActivityLogs(\Illuminate\Http\Request $request)
     {
         // Using an explicit INNER JOIN to combine users and activity_logs
         $logs = \Illuminate\Support\Facades\DB::table('activity_logs')
             ->join('users', 'users.id', '=', 'activity_logs.user_id')
+            ->where('activity_logs.user_id', $request->user()->id)
             ->select(
                 'activity_logs.id',
                 'users.first_name',

@@ -12,7 +12,6 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // ── Public (no auth required) ──────────────────────────────────────────────
 Route::get('/public/shop', [OrderController::class, 'shop']);
-Route::get('/reports/activity', [\App\Http\Controllers\Api\ReportController::class, 'getActivityLogs']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -23,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Vendor Routes ────────────────────────────────────────────────────────
     Route::middleware('role:vendor')->group(function () {
+        Route::get('/reports/activity', [\App\Http\Controllers\Api\ReportController::class, 'getActivityLogs']);
         Route::post('/profile/banner', [AuthController::class, 'updateBanner']);
         Route::get('/vendor/reviews', [ReviewController::class, 'vendorReviews']);
         Route::get('/products', [ProductController::class, 'index']);
