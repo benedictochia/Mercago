@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:shopper')->group(function () {
         Route::get('/shop', [OrderController::class, 'shop']);
         Route::post('/orders', [OrderController::class, 'store']);
+        Route::delete('/orders/{id}', [OrderController::class, 'cancel']);
         Route::post('/payments/create-intent', [PaymentController::class, 'createPaymentIntent']);
         Route::post('/payments/confirm', [PaymentController::class, 'confirmPayment']);
     });

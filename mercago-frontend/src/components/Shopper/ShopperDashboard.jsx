@@ -45,6 +45,7 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
   const [paymentMethod, setPaymentMethod] = useState('cod')   // 'cod' | 'gcash' | 'maya' | 'stripe'
   const [mockGatewayOpen, setMockGatewayOpen] = useState(false) // show mock payment UI
   const [currentOrderId, setCurrentOrderId] = useState(null)
+  const [pendingPaymentOrders, setPendingPaymentOrders] = useState([])
   const pollRef = useRef(null)
   const countdownRef = useRef(null)
 
@@ -137,6 +138,7 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
       if (orders && orders.length > 0) {
         // For simplicity, we process the first order in the batch for payment
         // In a real multi-vendor setup, you might need a total payment intent
+        setPendingPaymentOrders(orders);
         setCurrentOrderId(orders[0].order_id || orders[0].id);
         setMockGatewayOpen(true);
       }
@@ -361,7 +363,19 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
             setPaymentMethod('cod');
             await Promise.all([fetchShop(), fetchOrderHistory()]);
           }}
-          onCancel={() => setMockGatewayOpen(false)}
+          onCancel={async () => {
+            setMockGatewayOpen(false);
+            if (pendingPaymentOrders.length > 0) {
+              await Promise.all(pendingPaymentOrders.map(o => 
+                fetch(`${API_BASE_URL}/api/orders/${o.id || o.order_id}`, {
+                  method: 'DELETE',
+                  headers: authHeaders
+                })
+              ));
+              setPendingPaymentOrders([]);
+              fetchOrderHistory(); // Refresh to ensure they disappear
+            }
+          }}
         />
       )}
     </>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { API_BASE_URL, TOKEN_KEY } from '../../config'
 import StripeContainer from './StripeContainer'
 
@@ -168,8 +168,8 @@ export default function PaymentModal({ gateway, amount, orderId, onSuccess, onCa
         /* ── Overlay ── */
         .pm-overlay {
           position: fixed; inset: 0;
-          background: rgba(15, 23, 42, 0.75);
-          backdrop-filter: blur(10px);
+          background: rgba(255, 255, 255, 0.4);
+          backdrop-filter: blur(8px);
           display: flex; align-items: center; justify-content: center;
           z-index: 3000;
           padding: 16px;
@@ -178,7 +178,7 @@ export default function PaymentModal({ gateway, amount, orderId, onSuccess, onCa
         /* ── Card ── */
         .pm-card {
           background: #fff;
-          border-radius: 20px;
+          border-radius: 24px;
           width: 100%; max-width: 420px;
           overflow: hidden;
           box-shadow: 0 25px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08);

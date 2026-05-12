@@ -147,6 +147,42 @@ class OrderController extends Controller
     }
 
     /**
+     * DELETE /api/orders/{id}
+     * Cancel an unpaid order (e.g., if shopper abandons payment modal).
+     * Restores stock and deletes the order.
+     */
+    public function cancel(Request $request, $id)
+    {
+        $order = Order::where('id', $id)->where('shopper_id', $request->user()->id)->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        if ($order->payment_status !== 'pending' || $order->status !== 'placed') {
+            return response()->json(['message' => 'Cannot cancel this order.'], 400);
+        }
+
+        try {
+            DB::transaction(function () use ($order) {
+                // Restore stock
+                $items = OrderItem::where('order_id', $order->id)->get();
+                foreach ($items as $item) {
+                    Product::where('id', $item->product_id)->increment('stock_qty', $item->quantity);
+                }
+
+                // Delete order items and order
+                OrderItem::where('order_id', $order->id)->delete();
+                $order->delete();
+            });
+
+            return response()->json(['message' => 'Order cancelled and stock restored.']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to cancel order.'], 500);
+        }
+    }
+
+    /**
      * GET /api/orders
      * Returns purchase history for a shopper, or sales history for a vendor.
      */
