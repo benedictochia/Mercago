@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Fallback for unauthorized requests to prevent "Route [login] not defined"
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+})->name('login');
+
 // ── Public (no auth required) ──────────────────────────────────────────────
 Route::get('/public/shop', [OrderController::class, 'shop']);
 

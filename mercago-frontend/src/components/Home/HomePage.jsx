@@ -101,7 +101,7 @@ function VendorReviews({ vendor, token, API_BASE_URL, currentUser, onReviewSubmi
 }
 
 // ── All Listings Sub-Component ──
-function AllListingsSection({ allProducts, loading, handleAddToCart, addedProductId, CATEGORIES, onProductClick }) {
+function AllListingsSection({ allProducts, loading, handleAddToCart, addedProductId, CATEGORIES, onProductClick, quantities, setQuantities }) {
   const [activeCat, setActiveCat] = useState('All')
 
   const displayed = activeCat === 'All'
@@ -195,10 +195,18 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
 
   const fetchVendors = () => {
-    fetch(`${API_BASE_URL}/api/public/shop`)
-      .then((r) => r.json())
+    fetch(`${API_BASE_URL}/api/public/shop`, {
+      headers: { 'Accept': 'application/json' }
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to fetch')
+        return r.json()
+      })
       .then((d) => setVendors(Array.isArray(d) ? d : []))
-      .catch(() => setVendors([]))
+      .catch((err) => {
+        console.error('Market fetch error:', err)
+        setVendors([])
+      })
       .finally(() => setLoading(false))
   }
 
@@ -434,6 +442,8 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
                   addedProductId={addedProductId}
                   CATEGORIES={Array.from(new Set(vendorProducts.map(p => p.category).filter(Boolean)))}
                   onProductClick={(product) => setSelectedProductForModal(product)}
+                  quantities={quantities}
+                  setQuantities={setQuantities}
                 />
               </>
             )
@@ -519,6 +529,8 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
               addedProductId={addedProductId}
               CATEGORIES={globalCategories}
               onProductClick={(product) => setSelectedProductForModal(product)}
+              quantities={quantities}
+              setQuantities={setQuantities}
             />
           </>
         ) : (
@@ -581,7 +593,7 @@ export default function HomePage({ onLoginClick, onSignUpClick, currentUser, tok
                                   style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', textAlign: 'center' }} 
                                 />
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleAddToCart(product, vendor.vendor_name, quantities[product.id]); }}
+                                  onClick={(e) => { e.stopPropagation(); handleAddToCart(product, vendor.vendor_name); }}
                                   style={{ background: addedProductId === product.id ? '#059669' : '#e0f2fe', color: addedProductId === product.id ? '#fff' : '#0284c7', border: 'none', borderRadius: '6px', padding: '6px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}>
                                   {addedProductId === product.id ? '✓ Added' : '+ Add'}
                                 </button>

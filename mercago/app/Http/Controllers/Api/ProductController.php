@@ -21,34 +21,42 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'product_name' => ['required', 'string', 'max:255'],
-            'category' => ['required', 'string', 'max:100'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'unit' => ['required', 'string', 'max:50'],
-            'stock_qty' => ['required', 'numeric', 'min:0'],
-            'image' => ['nullable', 'image', 'max:5120'],
-        ]);
+        try {
+            $validated = $request->validate([
+                'product_name' => ['required', 'string', 'max:255'],
+                'category' => ['required', 'string', 'max:100'],
+                'price' => ['required', 'numeric', 'min:0'],
+                'unit' => ['required', 'string', 'max:50'],
+                'stock_qty' => ['required', 'numeric', 'min:0'],
+                'image' => ['nullable', 'image', 'max:5120'],
+            ]);
 
-        $validated['vendor_id'] = (string) $request->user()->id;
+            $validated['vendor_id'] = (string) $request->user()->id;
 
-        if ($request->hasFile('image')) {
-            $validated['image'] = $this->uploadToCloudinary($request->file('image')->getRealPath(), 'products');
+            if ($request->hasFile('image')) {
+                $validated['image'] = $this->uploadToCloudinary($request->file('image')->getRealPath(), 'products');
+            }
+
+            $product = Product::create($validated);
+
+            // Log the activity
+            \App\Models\ActivityLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'create_product',
+                'description' => "Vendor added a new product: {$product->product_name}."
+            ]);
+
+            return response()->json([
+                'message' => 'Product created successfully.',
+                'data' => $product,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e; // Let Laravel handle validation errors with structured field-level response
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        $product = Product::create($validated);
-
-        // Log the activity
-        \App\Models\ActivityLog::create([
-            'user_id' => $request->user()->id,
-            'action' => 'create_product',
-            'description' => "Vendor added a new product: {$product->product_name}."
-        ]);
-
-        return response()->json([
-            'message' => 'Product created successfully.',
-            'data' => $product,
-        ], 201);
     }
 
     public function update(Request $request, string $id)

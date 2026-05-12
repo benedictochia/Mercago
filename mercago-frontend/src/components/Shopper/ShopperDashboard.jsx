@@ -89,7 +89,7 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
   }
   const removeFromCart = (id) => setCart((prev) => prev.filter((i) => i.product.id !== id))
   const updateCartQty = (id, qty) => {
-    if (qty < 1) { removeFromCart(id); return }
+    if (qty <= 0) { removeFromCart(id); return }
     setCart((prev) => prev.map((i) => i.product.id === id ? { ...i, quantity: qty } : i))
   }
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0)
@@ -195,11 +195,19 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                         <td style={{ color: '#6b7280', fontSize: '0.9rem' }}>🏪 {item.product.vendorName}</td>
                         <td>₱{Number(item.product.price).toFixed(2)}</td>
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <button type="button" onClick={() => updateCartQty(item.product.id, item.quantity - 1)} style={{ width: 28, height: 28, border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', background: 'white' }}>−</button>
-                            <span style={{ minWidth: 24, textAlign: 'center' }}>{item.quantity}</span>
-                            <button type="button" onClick={() => updateCartQty(item.product.id, item.quantity + 1)} style={{ width: 28, height: 28, border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', background: 'white' }}>+</button>
-                          </div>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.001"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value)
+                              if (!val || val <= 0) return
+                              updateCartQty(item.product.id, val)
+                            }}
+                            style={{ width: 70, padding: '4px 6px', borderRadius: 4, border: '1px solid #d1d5db', textAlign: 'center', fontSize: '0.9rem' }}
+                          />
+                          <span style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: 4 }}>{item.product.unit || ''}</span>
                         </td>
                         <td style={{ fontWeight: 'bold' }}>₱{(item.product.price * item.quantity).toFixed(2)}</td>
                         <td><button type="button" className="danger-btn" onClick={() => removeFromCart(item.product.id)} style={{ padding: '4px 10px', fontSize: '0.8rem' }}>Remove</button></td>

@@ -27,9 +27,7 @@ class AuthController extends Controller
             'role' => ['required', 'string', Rule::in(['shopper', 'vendor', 'rider'])],
         ]);
 
-        // Explicit bcrypt hashing for task requirement.
-        $validated['password'] = Hash::make($validated['password']);
-
+        // Password is automatically hashed by the User model's 'hashed' cast.
         $user = User::create($validated);
         $token = $user->createToken('api-token')->plainTextToken;
 

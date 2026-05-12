@@ -65,70 +65,76 @@ class OrderController extends Controller
 
         $createdOrders = [];
 
-        DB::transaction(function () use ($request, $productIds, &$createdOrders) {
-            // Lock products for update to prevent race conditions
-            $products = Product::whereIn('id', $productIds)->lockForUpdate()->with('vendor')->get()->keyBy('id');
+        try {
+            DB::transaction(function () use ($request, $productIds, &$createdOrders) {
+                // Lock products for update to prevent race conditions
+                $products = Product::whereIn('id', $productIds)->lockForUpdate()->with('vendor')->get()->keyBy('id');
 
-            // Validate stock inside the transaction
-            foreach ($request->items as $item) {
-                $product = $products->get($item['product_id']);
-                if (!$product) {
-                    throw new \Exception("Product not found.");
-                }
-                if ($product->stock_qty < $item['quantity']) {
-                    throw new \Exception("Insufficient stock for \"{$product->product_name}\". Only {$product->stock_qty} left.");
-                }
-            }
-
-            // Group cart items by vendor_id
-            $groupedByVendor = collect($request->items)->groupBy(function ($item) use ($products) {
-                return $products->get($item['product_id'])->vendor_id;
-            });
-            foreach ($groupedByVendor as $vendorId => $vendorItems) {
-                $totalAmount = 0;
-                $orderItemsData = [];
-
-                foreach ($vendorItems as $item) {
-                    $product  = $products->get($item['product_id']);
-                    $subtotal = $product->price * $item['quantity'];
-                    $totalAmount += $subtotal;
-
-                    $orderItemsData[] = [
-                        'product_id'   => $product->id,
-                        'product_name' => $product->product_name,
-                        'unit_price'   => $product->price,
-                        'quantity'     => $item['quantity'],
-                        'subtotal'     => $subtotal,
-                    ];
-
-                    // Deduct stock
-                    $product->decrement('stock_qty', $item['quantity']);
+                // Validate stock inside the transaction
+                foreach ($request->items as $item) {
+                    $product = $products->get($item['product_id']);
+                    if (!$product) {
+                        throw new \Exception("Product not found.");
+                    }
+                    if ($product->stock_qty < $item['quantity']) {
+                        throw new \Exception("Insufficient stock for \"{$product->product_name}\". Only {$product->stock_qty} left.");
+                    }
                 }
 
-                // Create one Order per vendor
-                $order = Order::create([
-                    'shopper_id'      => $request->user()->id,
-                    'vendor_id'       => $vendorId,
-                    'total_amount'    => $totalAmount,
-                    'status'          => 'placed',
-                    'delivery_status' => 'finding_rider', // Broadcast to riders immediately
+                // Group cart items by vendor_id
+                $groupedByVendor = collect($request->items)->groupBy(function ($item) use ($products) {
+                    return $products->get($item['product_id'])->vendor_id;
+                });
+                foreach ($groupedByVendor as $vendorId => $vendorItems) {
+                    $totalAmount = 0;
+                    $orderItemsData = [];
+
+                    foreach ($vendorItems as $item) {
+                        $product  = $products->get($item['product_id']);
+                        $subtotal = $product->price * $item['quantity'];
+                        $totalAmount += $subtotal;
+
+                        $orderItemsData[] = [
+                            'product_id'   => $product->id,
+                            'product_name' => $product->product_name,
+                            'unit_price'   => $product->price,
+                            'quantity'     => $item['quantity'],
+                            'subtotal'     => $subtotal,
+                        ];
+
+                        // Deduct stock
+                        $product->decrement('stock_qty', $item['quantity']);
+                    }
+
+                    // Create one Order per vendor
+                    $order = Order::create([
+                        'shopper_id'      => $request->user()->id,
+                        'vendor_id'       => $vendorId,
+                        'total_amount'    => $totalAmount,
+                        'status'          => 'placed',
+                        'delivery_status' => 'finding_rider', // Broadcast to riders immediately
+                    ]);
+
+                    foreach ($orderItemsData as $itemData) {
+                        OrderItem::create(array_merge($itemData, ['order_id' => $order->id]));
+                    }
+
+                    $createdOrders[] = $order->load('items', 'vendor');
+                }
+                
+                // Log the activity inside the transaction to ensure it's recorded only on success
+                $totalItems = collect($request->items)->sum('quantity');
+                \App\Models\ActivityLog::create([
+                    'user_id' => $request->user()->id,
+                    'action' => 'place_order',
+                    'description' => "Shopper placed an order for {$totalItems} items across " . count($groupedByVendor) . " vendor(s)."
                 ]);
-
-                foreach ($orderItemsData as $itemData) {
-                    OrderItem::create(array_merge($itemData, ['order_id' => $order->id]));
-                }
-
-                $createdOrders[] = $order->load('items', 'vendor');
-            }
-            
-            // Log the activity inside the transaction to ensure it's recorded only on success
-            $totalItems = collect($request->items)->sum('quantity');
-            \App\Models\ActivityLog::create([
-                'user_id' => $request->user()->id,
-                'action' => 'place_order',
-                'description' => "Shopper placed an order for {$totalItems} items across " . count($groupedByVendor) . " vendor(s)."
-            ]);
-        });
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
             'message' => 'Order placed successfully!',

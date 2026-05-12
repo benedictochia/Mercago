@@ -53,10 +53,14 @@ function VendorAnalytics({ vendorOrders }) {
   const [calRangeEnd, setCalRangeEnd] = useState(null)
   const [calMode, setCalMode] = useState('single') // 'single' | 'range'
 
-  // Helper: check if a date string falls within a date range
   const isInRange = (dateStr, startDate, endDate) => {
-    const d = new Date(dateStr.split(' ')[0])
-    return d >= startDate && d <= endDate
+    if (!dateStr) return false
+    try {
+      const d = new Date(dateStr.split(' ')[0])
+      return d >= startDate && d <= endDate
+    } catch {
+      return false
+    }
   }
 
   // Current period date boundaries
@@ -1046,12 +1050,26 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
     if (!token) return
     setProductsLoading(true); setProductError('')
     try {
-      const res = await fetch(`${API_BASE_URL}/api/products`, { headers: authHeaders })
-      if (!res.ok) { setProductError(await extractError(res)); if (res.status === 401) onLogout(); return }
+      const res = await fetch(`${API_BASE_URL}/api/products`, { 
+        headers: {
+          ...authHeaders,
+          'Accept': 'application/json'
+        }
+      })
+      if (!res.ok) { 
+        const error = await extractError(res)
+        setProductError(error)
+        if (res.status === 401) onLogout()
+        return 
+      }
       const d = await res.json()
       setProducts(Array.isArray(d) ? d : d?.data ?? [])
-    } catch { setProductError('Unable to load products.') }
-    finally { setProductsLoading(false) }
+    } catch (err) { 
+      console.error('Fetch products error:', err)
+      setProductError('Unable to load products.') 
+    } finally { 
+      setProductsLoading(false) 
+    }
   }
 
   const fetchVendorOrders = async () => {
@@ -1341,7 +1359,7 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
                   { key: 'finding_rider', label: 'Finding Rider' },
                   { key: 'found_rider', label: 'Found Rider' },
                   { key: 'ongoing', label: 'Ongoing' },
-                  { key: 'delivered', label: 'Delivered' },
+                  { key: 'completed', label: 'Delivered' },
                 ].map(f => (
                   <button
                     key={f.key}
