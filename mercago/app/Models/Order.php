@@ -21,6 +21,8 @@ class Order extends Model
         'total_amount',
         'status',
         'delivery_status',
+        'payment_method',
+        'payment_status',
     ];
 
     public function shopper(): BelongsTo

@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../../config'
 import { extractError } from '../../utils/error'
 import StatusBadge from '../UI/StatusBadge'
 import EditProfileModal from '../UI/EditProfileModal'
+import MockPaymentModal from '../UI/MockPaymentModal'
 
 export default function ShopperDashboard({ currentUser, token, onLogout }) {
   const [shopperTab, setShopperTab] = useState(() => {
@@ -39,8 +40,10 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
   const [orderHistory, setOrderHistory] = useState([])
   const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const [orderMessage, setOrderMessage] = useState('')
-  const [cartWarning, setCartWarning] = useState('') // stock validation feedback
-  const [pollCountdown, setPollCountdown] = useState(20) // seconds until next auto-refresh
+  const [cartWarning, setCartWarning] = useState('')
+  const [pollCountdown, setPollCountdown] = useState(20)
+  const [paymentMethod, setPaymentMethod] = useState('cod')   // 'cod' | 'gcash' | 'maya'
+  const [mockGatewayOpen, setMockGatewayOpen] = useState(false) // show mock payment UI
   const pollRef = useRef(null)
   const countdownRef = useRef(null)
 
@@ -92,23 +95,36 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
     if (qty <= 0) { removeFromCart(id); return }
     setCart((prev) => prev.map((i) => i.product.id === id ? { ...i, quantity: qty } : i))
   }
-  const cartTotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0)
+  const cartTotal = cart.reduce((s, i) => s + (i.product.flash_active ? Number(i.product.flash_price) : Number(i.product.price)) * i.quantity, 0)
 
-  const handlePlaceOrder = async () => {
-    if (cart.length === 0) return
+  const placeOrderAPI = async () => {
     setIsPlacingOrder(true); setOrderMessage('')
     try {
       const res = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST', headers: authHeaders,
-        body: JSON.stringify({ items: cart.map((i) => ({ product_id: i.product.id, quantity: i.quantity })) }),
+        body: JSON.stringify({
+          items: cart.map((i) => ({ product_id: i.product.id, quantity: i.quantity })),
+          payment_method: paymentMethod,
+        }),
       })
       const d = await res.json()
       if (!res.ok) { setOrderMessage(`❌ ${d.message || 'Order failed.'}`); return }
       setCart([]); setOrderMessage('✅ Order placed! A rider will be assigned shortly.')
+      setPaymentMethod('cod')
       setShopperTab('history')
       await Promise.all([fetchShop(), fetchOrderHistory()])
     } catch { setOrderMessage('❌ Unable to connect.') }
     finally { setIsPlacingOrder(false) }
+  }
+
+  const handlePlaceOrder = async () => {
+    if (cart.length === 0) return
+    if (paymentMethod === 'gcash' || paymentMethod === 'maya') {
+      // Show the mock gateway first; it calls placeOrderAPI on success
+      setMockGatewayOpen(true)
+    } else {
+      await placeOrderAPI()
+    }
   }
 
   useEffect(() => {
@@ -135,7 +151,8 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
   }, [token])
 
   return (
-    <section>
+    <>
+      <section>
       <div className="dashboard-head">
         <div>
           <h2>Shop</h2>
@@ -193,7 +210,16 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                         <td>{item.product.image_url ? <img src={item.product.image_url} alt="img" style={{width: 40, height: 40, objectFit: 'cover', borderRadius: 4}} /> : null}</td>
                         <td>{item.product.product_name}</td>
                         <td style={{ color: '#6b7280', fontSize: '0.9rem' }}>🏪 {item.product.vendorName}</td>
-                        <td>₱{Number(item.product.price).toFixed(2)}</td>
+                        <td>
+                          {item.product.flash_active ? (
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ color: '#dc2626', fontWeight: 'bold' }}>⚡ ₱{Number(item.product.flash_price).toFixed(2)}</span>
+                              <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.8rem' }}>₱{Number(item.product.price).toFixed(2)}</span>
+                            </div>
+                          ) : (
+                            `₱${Number(item.product.price).toFixed(2)}`
+                          )}
+                        </td>
                         <td>
                           <input
                             type="number"
@@ -209,19 +235,42 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                           />
                           <span style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: 4 }}>{item.product.unit || ''}</span>
                         </td>
-                        <td style={{ fontWeight: 'bold' }}>₱{(item.product.price * item.quantity).toFixed(2)}</td>
+                        <td style={{ fontWeight: 'bold' }}>₱{((item.product.flash_active ? Number(item.product.flash_price) : Number(item.product.price)) * item.quantity).toFixed(2)}</td>
                         <td><button type="button" className="danger-btn" onClick={() => removeFromCart(item.product.id)} style={{ padding: '4px 10px', fontSize: '0.8rem' }}>Remove</button></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', padding: '1rem', background: '#f9fafb', borderRadius: 8 }}>
-                <strong style={{ fontSize: '1.1rem' }}>Total: ₱{cartTotal.toFixed(2)}</strong>
-                <button type="button" onClick={handlePlaceOrder} disabled={isPlacingOrder}
-                  style={{ background: '#059669', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                  {isPlacingOrder ? 'Placing...' : '✅ Place Order'}
-                </button>
+              <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f9fafb', borderRadius: 8 }}>
+                {/* Payment Method Selector */}
+                <div style={{ marginBottom: '1rem' }}>
+                  <p style={{ fontWeight: 700, fontSize: '0.9rem', margin: '0 0 8px' }}>💳 Payment Method</p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'cod', label: '💵 Cash on Delivery', color: '#6b7280' },
+                      { id: 'gcash', label: '💙 GCash', color: '#0070FF' },
+                      { id: 'maya', label: '💚 Maya', color: '#00BFA5' },
+                    ].map(m => (
+                      <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)}
+                        style={{
+                          padding: '8px 16px', borderRadius: 8, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+                          border: `2px solid ${paymentMethod === m.id ? m.color : '#e2e8f0'}`,
+                          background: paymentMethod === m.id ? m.color + '15' : '#fff',
+                          color: paymentMethod === m.id ? m.color : '#6b7280',
+                        }}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '1.1rem' }}>Total: ₱{cartTotal.toFixed(2)}</strong>
+                  <button type="button" onClick={handlePlaceOrder} disabled={isPlacingOrder}
+                    style={{ background: '#059669', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                    {isPlacingOrder ? 'Placing...' : paymentMethod === 'cod' ? '✅ Place Order' : `💳 Pay with ${paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -246,6 +295,14 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                   <strong>🏪 {order.vendor_name}</strong>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     <StatusBadge status={order.delivery_status} />
+                    {order.payment_method && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                        background: order.payment_method === 'cod' ? '#f3f4f6' : order.payment_method === 'gcash' ? '#eff6ff' : '#f0fdf4',
+                        color: order.payment_method === 'cod' ? '#6b7280' : order.payment_method === 'gcash' ? '#1d4ed8' : '#059669',
+                      }}>
+                        {order.payment_method === 'cod' ? '💵 COD' : order.payment_method === 'gcash' ? '💙 GCash' : '💚 Maya'}
+                      </span>
+                    )}
                     <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>{order.ordered_at}</span>
                   </div>
                 </div>
@@ -272,5 +329,15 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
         </>
       )}
     </section>
+
+      {mockGatewayOpen && (
+        <MockPaymentModal
+          gateway={paymentMethod}
+          amount={cartTotal}
+          onSuccess={async () => { setMockGatewayOpen(false); await placeOrderAPI() }}
+          onCancel={() => setMockGatewayOpen(false)}
+        />
+      )}
+    </>
   )
 }

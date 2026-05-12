@@ -36,6 +36,7 @@ class User extends Authenticatable
         'sex',
         'address',
         'role',
+        'max_abono',
     ];
 
     /**
@@ -74,5 +75,10 @@ class User extends Authenticatable
     public function givenReviews(): HasMany
     {
         return $this->hasMany(Review::class, 'user_id');
+    }
+
+    public function ledger(): HasMany
+    {
+        return $this->hasMany(\App\Models\RiderLedger::class, 'rider_id');
     }
 }

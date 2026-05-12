@@ -34,6 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
         Route::put('/products/{id}', [ProductController::class, 'update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+        Route::post('/products/{id}/flash-sale', [ProductController::class, 'toggleFlashSale']); // Flash sale toggle
         Route::post('/orders/{id}/ready', [OrderController::class, 'markReady']); // Vendor: mark order ready for pickup
     });
 
@@ -52,5 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/rider/orders/{id}/decline', [RiderController::class, 'declineOrder']);
         Route::post('/rider/orders/{id}/complete', [RiderController::class, 'completeDelivery']);
         Route::get('/rider/my-deliveries', [RiderController::class, 'myDeliveries']);
+        Route::get('/rider/ledger', [RiderController::class, 'ledger']);                // Abono ledger
+        Route::put('/rider/abono-settings', [RiderController::class, 'updateAbonoSettings']); // Update cap
     });
 });

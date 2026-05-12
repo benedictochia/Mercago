@@ -125,6 +125,48 @@ class ProductController extends Controller
     }
 
     /**
+     * POST /api/products/{id}/flash-sale
+     * Vendor enables or updates a flash sale on a product,
+     * or disables it by setting is_flash_sale = false.
+     */
+    public function toggleFlashSale(Request $request, string $id)
+    {
+        $product = Product::where('id', $id)
+            ->where('vendor_id', $request->user()->id)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'is_flash_sale'    => ['required', 'boolean'],
+            'flash_price'      => ['required_if:is_flash_sale,true', 'nullable', 'numeric', 'min:0'],
+            'flash_expires_at' => ['required_if:is_flash_sale,true', 'nullable', 'date', 'after:now'],
+        ]);
+
+        if ($validated['is_flash_sale']) {
+            $product->update([
+                'is_flash_sale'    => true,
+                'flash_price'      => $validated['flash_price'],
+                'flash_expires_at' => $validated['flash_expires_at'],
+            ]);
+            $message = "⚡ Flash sale activated for {$product->product_name}!";
+        } else {
+            $product->update([
+                'is_flash_sale'    => false,
+                'flash_price'      => null,
+                'flash_expires_at' => null,
+            ]);
+            $message = "Flash sale deactivated for {$product->product_name}.";
+        }
+
+        \App\Models\ActivityLog::create([
+            'user_id'     => $request->user()->id,
+            'action'      => $validated['is_flash_sale'] ? 'flash_sale_on' : 'flash_sale_off',
+            'description' => $message,
+        ]);
+
+        return response()->json(['message' => $message, 'data' => $product->fresh()]);
+    }
+
+    /**
      * Upload a file to Cloudinary using explicit credentials from env vars.
      */
     private function uploadToCloudinary(string $filePath, string $folder): string

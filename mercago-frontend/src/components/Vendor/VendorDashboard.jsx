@@ -1015,6 +1015,30 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
     } catch { /* silent */ }
   }
 
+  // ── Flash Sale ──────────────────────────────────────────────────────────────
+  const [flashSaleProductId, setFlashSaleProductId] = useState(null)
+  const [flashSaleForm, setFlashSaleForm] = useState({ flash_price: '', flash_expires_at: '' })
+  const [flashSaleLoading, setFlashSaleLoading] = useState(false)
+  const [flashSaleMsg, setFlashSaleMsg] = useState('')
+
+  const handleFlashSale = async (productId, enable) => {
+    setFlashSaleLoading(true); setFlashSaleMsg('')
+    try {
+      const body = enable
+        ? { is_flash_sale: true, flash_price: parseFloat(flashSaleForm.flash_price), flash_expires_at: flashSaleForm.flash_expires_at }
+        : { is_flash_sale: false }
+      const res = await fetch(`${API_BASE_URL}/api/products/${productId}/flash-sale`, {
+        method: 'POST', 
+        headers: { ...authHeaders, 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(body)
+      })
+      const d = await res.json()
+      setFlashSaleMsg(res.ok ? `✅ ${d.message}` : `❌ ${d.message}`)
+      if (res.ok) { setFlashSaleProductId(null); setFlashSaleForm({ flash_price: '', flash_expires_at: '' }); await fetchProducts() }
+    } catch { setFlashSaleMsg('❌ Unable to update flash sale.') }
+    finally { setFlashSaleLoading(false) }
+  }
+
   const handleSaveProduct = async (e) => {
     e.preventDefault(); setIsSavingProduct(true); setProductError('')
     const isEdit = Boolean(editingProductId)
@@ -1249,7 +1273,7 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
           {!productsLoading && products.length > 0 ? (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Unit</th><th>Stock</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Unit</th><th>Stock</th><th>⚡ Flash</th><th>Actions</th></tr></thead>
                 <tbody>
                   {products.map((p) => (
                     <tr key={p.id}>
@@ -1267,8 +1291,20 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
                           <span style={{ background: '#f0fdf4', color: '#16a34a', fontWeight: 600, fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', whiteSpace: 'nowrap' }}>In Stock — {p.stock_qty}</span>
                         )}
                       </td>
+                      <td>
+                        {p.flash_active
+                          ? <span style={{ background: '#fef2f2', color: '#dc2626', fontWeight: 700, fontSize: '0.72rem', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>⚡ ₱{Number(p.flash_price).toFixed(2)}</span>
+                          : <span style={{ color: '#d1d5db', fontSize: '0.8rem' }}>—</span>
+                        }
+                      </td>
                       <td className="row-actions">
                         <button type="button" onClick={() => startEditProduct(p)}>Edit</button>
+                        <button type="button"
+                          onClick={() => { setFlashSaleProductId(flashSaleProductId === p.id ? null : p.id); setFlashSaleMsg('') }}
+                          style={{ background: p.flash_active ? '#fef2f2' : '#fff7ed', color: p.flash_active ? '#dc2626' : '#ea580c', border: `1px solid ${p.flash_active ? '#fca5a5' : '#fed7aa'}`, borderRadius: 6, padding: '4px 10px', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+                        >
+                          {p.flash_active ? '⚡ On' : '⚡ Off'}
+                        </button>
                         <button type="button" className="danger-btn" onClick={() => handleDeleteProduct(p.id)}>Delete</button>
                       </td>
                     </tr>
@@ -1277,6 +1313,55 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
               </table>
             </div>
           ) : null}
+
+          {/* ── Flash Sale Inline Form ── */}
+          {flashSaleProductId && (() => {
+            const p = products.find(x => x.id === flashSaleProductId)
+            if (!p) return null
+            return (
+              <div style={{ border: '2px solid #fca5a5', borderRadius: 10, padding: '1rem 1.25rem', marginTop: 16, background: '#fff5f5' }}>
+                <h4 style={{ margin: '0 0 4px', color: '#dc2626' }}>⚡ Flash Sale — {p.product_name}</h4>
+                <p style={{ margin: '0 0 12px', fontSize: '0.82rem', color: '#6b7280' }}>Regular price: ₱{Number(p.price).toFixed(2)}. Set a lower flash price and an expiry time.</p>
+                {flashSaleMsg && <p style={{ margin: '0 0 8px', fontWeight: 600, color: flashSaleMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{flashSaleMsg}</p>}
+                {p.flash_active && (
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    <button type="button" onClick={() => handleFlashSale(p.id, false)} disabled={flashSaleLoading}
+                      style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer' }}>
+                      🛑 End Flash Sale
+                    </button>
+                    <button type="button" onClick={() => setFlashSaleProductId(null)}
+                      style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                <form onSubmit={e => { e.preventDefault(); handleFlashSale(p.id, true) }} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <label style={{ flex: '1 1 140px' }}>
+                    <span style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', marginBottom: 4 }}>Flash Price (₱)</span>
+                    <input type="number" min="0" step="0.01" value={flashSaleForm.flash_price}
+                      onChange={e => setFlashSaleForm(f => ({ ...f, flash_price: e.target.value }))} required
+                      placeholder={`e.g. ${Math.round(p.price * 0.7)}`}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #fca5a5', fontSize: '0.9rem' }} />
+                  </label>
+                  <label style={{ flex: '1 1 200px' }}>
+                    <span style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', marginBottom: 4 }}>Expires At</span>
+                    <input type="datetime-local" value={flashSaleForm.flash_expires_at}
+                      onChange={e => setFlashSaleForm(f => ({ ...f, flash_expires_at: e.target.value }))} required
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #fca5a5', fontSize: '0.9rem' }} />
+                  </label>
+                  <button type="submit" disabled={flashSaleLoading}
+                    style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 20px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {flashSaleLoading ? 'Saving...' : '⚡ Activate Flash Sale'}
+                  </button>
+                  <button type="button" onClick={() => setFlashSaleProductId(null)}
+                    style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '9px 16px', fontWeight: 600, cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                </form>
+              </div>
+            )
+          })()}
+
         </>
       )}
 
@@ -1336,14 +1421,14 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
                               onClick={() => handleMarkReady(order.order_id)}
                               style={{ 
                                 marginTop: 8, background: '#10b981', color: '#fff', border: 'none', 
-                                padding: '10px 16px', borderRadius: '8px', fontSize: '0.95rem', 
-                                fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)',
-                                transition: 'all 0.2s'
+                                padding: '16px 32px', borderRadius: '12px', fontSize: '1.2rem', 
+                                fontWeight: '900', cursor: 'pointer', boxShadow: '0 8px 20px rgba(16, 185, 129, 0.4)',
+                                transition: 'all 0.2s', textTransform: 'uppercase', letterSpacing: '1px'
                               }}
-                              onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-                              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                              onMouseEnter={(e) => { e.target.style.transform = 'scale(1.05)'; e.target.style.background = '#059669' }}
+                              onMouseLeave={(e) => { e.target.style.transform = 'scale(1)'; e.target.style.background = '#10b981' }}
                             >
-                              Ready for Pickup
+                              🚀 Ready for Pickup
                             </button>
                           )}
                         </div>

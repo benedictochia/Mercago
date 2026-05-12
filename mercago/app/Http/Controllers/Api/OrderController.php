@@ -90,15 +90,16 @@ class OrderController extends Controller
                     $orderItemsData = [];
 
                     foreach ($vendorItems as $item) {
-                        $product  = $products->get($item['product_id']);
-                        $subtotal = $product->price * $item['quantity'];
+                        $product      = $products->get($item['product_id']);
+                        $activePrice  = $product->effective_price; // honours flash sale
+                        $subtotal     = $activePrice * $item['quantity'];
                         $totalAmount += $subtotal;
 
                         $orderItemsData[] = [
                             'product_id'   => $product->id,
                             'product_name' => $product->product_name,
                             'unit'         => $product->unit,
-                            'unit_price'   => $product->price,
+                            'unit_price'   => $activePrice, // snapshot at purchase time
                             'quantity'     => $item['quantity'],
                             'subtotal'     => $subtotal,
                         ];
@@ -113,7 +114,9 @@ class OrderController extends Controller
                         'vendor_id'       => $vendorId,
                         'total_amount'    => $totalAmount,
                         'status'          => 'placed',
-                        'delivery_status' => 'finding_rider', // Broadcast to riders immediately
+                        'delivery_status' => 'finding_rider',
+                        'payment_method'  => $request->input('payment_method', 'cod'),
+                        'payment_status'  => 'pending',
                     ]);
 
                     foreach ($orderItemsData as $itemData) {
@@ -165,6 +168,8 @@ class OrderController extends Controller
                         'delivery_status' => $order->delivery_status,
                         'status'          => $order->status,
                         'ordered_at'      => $order->created_at->toDateTimeString(),
+                        'payment_method'  => $order->payment_method,
+                        'payment_status'  => $order->payment_status,
                         'items'        => $order->items->map(fn($i) => [
                             'product_name' => $i->product_name,
                             'unit'         => $i->unit,
@@ -193,6 +198,8 @@ class OrderController extends Controller
                         'delivery_status' => $order->delivery_status,
                         'status'          => $order->status,
                         'ordered_at'      => $order->created_at->toDateTimeString(),
+                        'payment_method'  => $order->payment_method,
+                        'payment_status'  => $order->payment_status,
                         'items'        => $order->items->map(fn($i) => [
                             'product_name' => $i->product_name,
                             'unit'         => $i->unit,
@@ -225,9 +232,21 @@ class OrderController extends Controller
 
         $order->update(['delivery_status' => 'ongoing']);
 
+        // Abono: rider is picking up goods and paying vendor upfront
+        // Record an advance debit against the rider's balance ONLY for COD orders
+        if ($order->rider_id && $order->payment_method === 'cod') {
+            \App\Models\RiderLedger::create([
+                'rider_id' => $order->rider_id,
+                'order_id' => $order->id,
+                'type'     => 'advance',
+                'amount'   => $order->total_amount,
+                'note'     => "Paid vendor upfront for order #{$order->id}",
+            ]);
+        }
+
         return response()->json([
-            'message' => 'Order marked as ready! The rider will now deliver it.',
-            'order_id' => $order->id,
+            'message'         => 'Order marked as ready! The rider will now deliver it.',
+            'order_id'        => $order->id,
             'delivery_status' => $order->delivery_status,
         ]);
     }

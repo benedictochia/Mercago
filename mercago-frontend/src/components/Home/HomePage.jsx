@@ -547,6 +547,66 @@ export default function HomePage({ onLoginClick, onSignUpClick, onSellClick, cur
               )
             })()}
 
+            {/* ── ⚡ Bagsak Presyo (Flash Sales) ── */}
+            {(() => {
+              const now = Date.now()
+              const flashProducts = vendors.flatMap(v =>
+                v.products
+                  .filter(p => p.flash_active && p.flash_expires_at && new Date(p.flash_expires_at).getTime() > now)
+                  .map(p => ({ ...p, vendorName: v.vendor_name, vendorId: v.vendor_id }))
+              )
+              if (flashProducts.length === 0) return null
+              return (
+                <div style={{ marginBottom: '2.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
+                    <span style={{ fontSize: '1.6rem' }}>⚡</span>
+                    <h2 style={{ margin: 0, fontSize: '1.4rem', color: '#dc2626', fontWeight: 900 }}>Bagsak Presyo</h2>
+                    <span style={{ background: '#dc2626', color: '#fff', fontSize: '0.7rem', fontWeight: 800, padding: '3px 8px', borderRadius: 20, letterSpacing: 1 }}>FLASH SALE</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+                    {flashProducts.map(product => {
+                      const expiresMs = new Date(product.flash_expires_at).getTime() - now
+                      const expiresHr = Math.floor(expiresMs / 3600000)
+                      const expiresMn = Math.floor((expiresMs % 3600000) / 60000)
+                      const expiresSc = Math.floor((expiresMs % 60000) / 1000)
+                      const countdownStr = expiresHr > 0
+                        ? `${expiresHr}h ${expiresMn}m`
+                        : `${expiresMn}m ${expiresSc}s`
+                      return (
+                        <div key={product.id} style={{
+                          background: '#fff', border: '2px solid #fca5a5', borderRadius: 12,
+                          overflow: 'hidden', boxShadow: '0 4px 12px rgba(220,38,38,0.1)',
+                          cursor: 'pointer', transition: 'transform 0.2s',
+                        }}
+                          onClick={() => { setSelectedProductForModal({ ...product, vendorName: product.vendorName }) }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                        >
+                          {product.image_url && (
+                            <img src={product.image_url} alt={product.product_name}
+                              style={{ width: '100%', height: 120, objectFit: 'cover' }} />
+                          )}
+                          <div style={{ padding: '10px 12px' }}>
+                            <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: '0.9rem', color: '#111' }}>{product.product_name}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontWeight: 900, color: '#dc2626', fontSize: '1.1rem' }}>₱{Number(product.flash_price).toFixed(2)}</span>
+                              <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '0.8rem' }}>₱{Number(product.price).toFixed(2)}</span>
+                            </div>
+                            <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 700, background: '#fef2f2', padding: '2px 6px', borderRadius: 6 }}>
+                                ⏱ {countdownStr}
+                              </span>
+                              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{product.vendorName}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* ── All Listings ── */}
             <AllListingsSection
               allProducts={allProducts}

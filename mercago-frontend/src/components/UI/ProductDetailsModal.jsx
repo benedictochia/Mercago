@@ -33,8 +33,10 @@ export default function ProductDetailsModal({ product, token, API_BASE_URL, curr
     if (base === 'kg' && selectedUnit === 'grams') cq = raw / 1000
     if (base === 'kg' && selectedUnit === 'lb') cq = raw * 0.453592
     if (selectedUnit === 'half') cq = raw * 0.5
-    return { convertedQty: cq, pricePreview: (cq * Number(product.price)).toFixed(2) }
-  }, [quantity, selectedUnit, product.price, product.unit])
+    
+    const activePrice = product.flash_active ? Number(product.flash_price) : Number(product.price)
+    return { convertedQty: cq, pricePreview: (cq * activePrice).toFixed(2) }
+  }, [quantity, selectedUnit, product.price, product.flash_price, product.flash_active, product.unit])
 
   const handleAddToCartClick = () => {
     if (convertedQty <= 0) return
@@ -128,7 +130,23 @@ export default function ProductDetailsModal({ product, token, API_BASE_URL, curr
             
             {/* Price + Rating Row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#0f172a' }}>₱{Number(product.price).toFixed(2)} <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 'normal' }}>/ {product.unit}</span></span>
+              <div>
+                {product.flash_active ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#dc2626' }}>
+                      ⚡ ₱{Number(product.flash_price).toFixed(2)}
+                    </span>
+                    <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '1rem' }}>
+                      ₱{Number(product.price).toFixed(2)}
+                    </span>
+                    <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 'normal' }}>/ {product.unit}</span>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#0f172a' }}>
+                    ₱{Number(product.price).toFixed(2)} <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 'normal' }}>/ {product.unit}</span>
+                  </span>
+                )}
+              </div>
               <span style={{ background: '#fef3c7', color: '#b45309', padding: '6px 12px', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 700 }}>
                 ★ {product.avg_rating > 0 ? product.avg_rating : 'New'}
               </span>
