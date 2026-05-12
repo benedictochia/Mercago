@@ -97,6 +97,7 @@ class OrderController extends Controller
                         $orderItemsData[] = [
                             'product_id'   => $product->id,
                             'product_name' => $product->product_name,
+                            'unit'         => $product->unit,
                             'unit_price'   => $product->price,
                             'quantity'     => $item['quantity'],
                             'subtotal'     => $subtotal,
@@ -166,6 +167,7 @@ class OrderController extends Controller
                         'ordered_at'      => $order->created_at->toDateTimeString(),
                         'items'        => $order->items->map(fn($i) => [
                             'product_name' => $i->product_name,
+                            'unit'         => $i->unit,
                             'unit_price'   => $i->unit_price,
                             'quantity'     => $i->quantity,
                             'subtotal'     => $i->subtotal,
@@ -193,6 +195,7 @@ class OrderController extends Controller
                         'ordered_at'      => $order->created_at->toDateTimeString(),
                         'items'        => $order->items->map(fn($i) => [
                             'product_name' => $i->product_name,
+                            'unit'         => $i->unit,
                             'unit_price'   => $i->unit_price,
                             'quantity'     => $i->quantity,
                             'subtotal'     => $i->subtotal,

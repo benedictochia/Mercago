@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { API_BASE_URL } from '../../config'
 import { extractError } from '../../utils/error'
 
-export default function AuthModal({ defaultTab = 'login', onLoginSuccess, onClose }) {
+export default function AuthModal({ defaultTab = 'login', defaultRole = 'shopper', onLoginSuccess, onClose }) {
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -11,7 +11,7 @@ export default function AuthModal({ defaultTab = 'login', onLoginSuccess, onClos
   const [registerForm, setRegisterForm] = useState({
     first_name: '', middle_name: '', last_name: '',
     email: '', password: '', contact_no: '',
-    age: '', sex: 'Male', address: '', role: 'shopper',
+    age: '', sex: 'Male', address: '', role: defaultRole,
   })
 
   const handleLogin = async (e) => {

@@ -9,8 +9,8 @@
 
 /* Glassmorphism Card Effect */
 .card {
-  width: 100%;
-  max-width: 980px;
+  width: 95%;
+  max-width: 1400px;
   background: var(--panel-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);

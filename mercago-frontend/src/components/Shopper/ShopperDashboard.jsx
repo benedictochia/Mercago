@@ -256,7 +256,7 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                       {order.items.map((item, idx) => (
                         <tr key={idx}>
                           <td>{item.product_name}</td>
-                          <td>{item.quantity}</td>
+                          <td>{item.quantity} <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{item.unit}</span></td>
                           <td>₱{Number(item.unit_price).toFixed(2)}</td>
                           <td>₱{Number(item.subtotal).toFixed(2)}</td>
                         </tr>

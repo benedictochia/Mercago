@@ -15,6 +15,7 @@ function App() {
 
   // 'none' | 'login' | 'register'
   const [authModal, setAuthModal] = useState('none')
+  const [authRole, setAuthRole] = useState('shopper')
   // 'home' | 'dashboard'
   const [view, setView] = useState('home')
 
@@ -50,6 +51,7 @@ function App() {
       {authModal !== 'none' && (
         <AuthModal
           defaultTab={authModal === 'register' ? 'register' : 'login'}
+          defaultRole={authRole}
           onLoginSuccess={handleLoginSuccess}
           onClose={() => setAuthModal('none')}
         />
@@ -59,19 +61,22 @@ function App() {
         <HomePage
           currentUser={currentUser}
           token={token}
-          onLoginClick={() => setAuthModal('login')}
-          onSignUpClick={() => setAuthModal('register')}
+          onLoginClick={() => { setAuthRole('shopper'); setAuthModal('login') }}
+          onSignUpClick={() => { setAuthRole('shopper'); setAuthModal('register') }}
+          onSellClick={() => { setAuthRole('vendor'); setAuthModal('register') }}
           onGoToDashboard={goToDashboard}
         />
       ) : (
         <div className="app-shell">
           <div className="card">
-            {/* Back to Home */}
-            <div style={{ marginBottom: '1rem' }}>
-              <button onClick={goToHome} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', padding: 0 }}>
-                ← Back to Market
-              </button>
-            </div>
+            {/* Back to Home (Hidden for Riders) */}
+            {currentUser.role !== 'rider' && (
+              <div style={{ marginBottom: '1rem' }}>
+                <button onClick={goToHome} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', padding: 0 }}>
+                  ← Back to Market
+                </button>
+              </div>
+            )}
 
             {currentUser.role === 'vendor' && <VendorDashboard currentUser={currentUser} token={token} onLogout={handleLogout} />}
             {currentUser.role === 'shopper' && <ShopperDashboard currentUser={currentUser} token={token} onLogout={handleLogout} onGoToHome={goToHome} />}

@@ -929,81 +929,6 @@ function VendorAnalytics({ vendorOrders }) {
           </div>
         )}
       </div>
-
-    {/* ── Activity Log ── */}
-    <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginTop: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#111' }}>🕑 Activity Log</h3>
-        <span style={{ fontSize: '0.78rem', color: '#94a3b8', background: '#f1f5f9', padding: '4px 10px', borderRadius: '12px' }}>
-          System-generated · {vendorOrders.length} events
-        </span>
-      </div>
-
-      {vendorOrders.length === 0 ? (
-        <p style={{ color: '#9ca3af', textAlign: 'center', padding: '24px 0', margin: 0 }}>No activity yet.</p>
-      ) : (
-        <div style={{ maxHeight: '360px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {/* One log entry per order, sorted newest-first, max 50 */}
-          {[...vendorOrders]
-            .sort((a, b) => new Date(b.ordered_at) - new Date(a.ordered_at))
-            .slice(0, 50)
-            .map((o, idx) => {
-              // Map delivery_status → icon + label + color
-              const statusMap = {
-                finding_rider: { icon: '🔍', label: 'Finding Rider', color: '#f59e0b', bg: '#fffbeb' },
-                found_rider:   { icon: '🏍️', label: 'Rider Found',   color: '#3b82f6', bg: '#eff6ff' },
-                ongoing:       { icon: '🚴', label: 'On the Way',    color: '#8b5cf6', bg: '#f5f3ff' },
-                delivered:     { icon: '✅', label: 'Delivered',     color: '#10b981', bg: '#ecfdf5' },
-                cancelled:     { icon: '❌', label: 'Cancelled',     color: '#ef4444', bg: '#fef2f2' },
-              }
-              const s = statusMap[o.delivery_status] || { icon: '📋', label: o.delivery_status, color: '#6b7280', bg: '#f9fafb' }
-              const itemSummary = o.items.map(i => `${i.product_name} ×${i.quantity}`).join(', ')
-
-              return (
-                <div
-                  key={o.order_id + idx}
-                  style={{
-                    display: 'flex', alignItems: 'flex-start', gap: '12px',
-                    padding: '10px 12px', borderRadius: '8px',
-                    background: idx % 2 === 0 ? '#fafafa' : '#fff',
-                    border: '1px solid #f1f5f9',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                  onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fafafa' : '#fff'}
-                >
-                  {/* Status icon bubble */}
-                  <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: '50%', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', border: `1px solid ${s.color}22` }}>
-                    {s.icon}
-                  </div>
-
-                  {/* Event description */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      🛒 Order from <span style={{ color: '#3b82f6' }}>{o.shopper_name}</span>
-                      <span style={{ fontWeight: 400, color: '#6b7280' }}> — </span>
-                      <span style={{ color: '#059669', fontWeight: 700 }}>₱{Number(o.total_amount).toFixed(2)}</span>
-                    </div>
-                    <div style={{ fontSize: '0.775rem', color: '#6b7280', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {itemSummary}
-                    </div>
-                  </div>
-
-                  {/* Status badge + timestamp */}
-                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: s.color, background: s.bg, padding: '2px 8px', borderRadius: '10px', border: `1px solid ${s.color}33`, whiteSpace: 'nowrap' }}>
-                      {s.label}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px', whiteSpace: 'nowrap' }}>
-                      {o.ordered_at}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-        </div>
-      )}
-    </div>
     </>
   )
 }
@@ -1079,6 +1004,14 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
       if (!res.ok) return
       const d = await res.json()
       setVendorOrders(Array.isArray(d) ? d : [])
+    } catch { /* silent */ }
+  }
+
+  const handleMarkReady = async (orderId) => {
+    if (!token) return
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/ready`, { method: 'POST', headers: authHeaders })
+      if (res.ok) await fetchVendorOrders()
     } catch { /* silent */ }
   }
 
@@ -1229,7 +1162,7 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
         <button className={vendorTab === 'products' ? 'tab active' : 'tab'} type="button" onClick={() => setVendorTab('products')}>My Products</button>
         <button className={vendorTab === 'sales' ? 'tab active' : 'tab'} type="button" onClick={() => { setVendorTab('sales'); fetchVendorOrders() }}>Sales History</button>
         <button className={vendorTab === 'profile' ? 'tab active' : 'tab'} type="button" onClick={() => setVendorTab('profile')}>Store Profile</button>
-        <button className={vendorTab === 'activity' ? 'tab active' : 'tab'} type="button" onClick={() => { setVendorTab('activity'); fetchActivityLogs() }}>Activity Log</button>
+        <button className={vendorTab === 'activity' ? 'tab active' : 'tab'} type="button" onClick={() => { setVendorTab('activity'); fetchActivityLogs() }}>Audit Log</button>
       </div>
 
       {vendorTab === 'analytics' && (
@@ -1398,6 +1331,21 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                           <StatusBadge status={order.delivery_status} />
                           <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>{order.ordered_at}</span>
+                          {order.delivery_status === 'found_rider' && (
+                            <button 
+                              onClick={() => handleMarkReady(order.order_id)}
+                              style={{ 
+                                marginTop: 8, background: '#10b981', color: '#fff', border: 'none', 
+                                padding: '10px 16px', borderRadius: '8px', fontSize: '0.95rem', 
+                                fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                            >
+                              Ready for Pickup
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="table-wrap">
@@ -1407,7 +1355,7 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
                             {order.items.map((item, idx) => (
                               <tr key={idx}>
                                 <td>{item.product_name}</td>
-                                <td>{item.quantity}</td>
+                                <td>{item.quantity} <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{item.unit}</span></td>
                                 <td>₱{Number(item.unit_price).toFixed(2)}</td>
                                 <td>₱{Number(item.subtotal).toFixed(2)}</td>
                               </tr>
@@ -1509,11 +1457,11 @@ export default function VendorDashboard({ currentUser, token, onLogout }) {
       {vendorTab === 'activity' && (
         <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0 }}>Activity Log</h3>
+            <h3 style={{ margin: 0 }}>🔍 Audit Log</h3>
             <button type="button" className="secondary-btn" onClick={fetchActivityLogs}>Refresh</button>
           </div>
           <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            A detailed trail of your recent actions on the platform.
+            A detailed trail of <strong>your own actions</strong> on the platform — product edits, price changes, deletions. For order history, see the <strong>Sales History</strong> tab.
           </p>
 
           {activityLogsLoading ? (
