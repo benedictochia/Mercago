@@ -42,8 +42,9 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
   const [orderMessage, setOrderMessage] = useState('')
   const [cartWarning, setCartWarning] = useState('')
   const [pollCountdown, setPollCountdown] = useState(20)
-  const [paymentMethod, setPaymentMethod] = useState('cod')   // 'cod' | 'gcash' | 'maya'
+  const [paymentMethod, setPaymentMethod] = useState('cod')   // 'cod' | 'gcash' | 'maya' | 'stripe'
   const [mockGatewayOpen, setMockGatewayOpen] = useState(false) // show mock payment UI
+  const [currentOrderId, setCurrentOrderId] = useState(null)
   const pollRef = useRef(null)
   const countdownRef = useRef(null)
 
@@ -108,20 +109,37 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
         }),
       })
       const d = await res.json()
-      if (!res.ok) { setOrderMessage(`❌ ${d.message || 'Order failed.'}`); return }
-      setCart([]); setOrderMessage('✅ Order placed! A rider will be assigned shortly.')
-      setPaymentMethod('cod')
-      setShopperTab('history')
-      await Promise.all([fetchShop(), fetchOrderHistory()])
-    } catch { setOrderMessage('❌ Unable to connect.') }
-    finally { setIsPlacingOrder(false) }
+      if (!res.ok) { setOrderMessage(`❌ ${d.message || 'Order failed.'}`); return null }
+      
+      // If it's a digital payment, we keep the cart until payment is confirmed
+      // Or we can clear it now and let the modal handle success.
+      // For Stripe, we need the order ID.
+      if (paymentMethod === 'cod') {
+        setCart([]); 
+        setOrderMessage('✅ Order placed! A rider will be assigned shortly.')
+        setShopperTab('history')
+        await Promise.all([fetchShop(), fetchOrderHistory()])
+      }
+      return d.orders;
+    } catch { 
+      setOrderMessage('❌ Unable to connect.'); 
+      return null;
+    } finally { 
+      setIsPlacingOrder(false) 
+    }
   }
 
   const handlePlaceOrder = async () => {
     if (cart.length === 0) return
-    if (paymentMethod === 'gcash' || paymentMethod === 'maya') {
-      // Show the mock gateway first; it calls placeOrderAPI on success
-      setMockGatewayOpen(true)
+    
+    if (paymentMethod !== 'cod') {
+      const orders = await placeOrderAPI();
+      if (orders && orders.length > 0) {
+        // For simplicity, we process the first order in the batch for payment
+        // In a real multi-vendor setup, you might need a total payment intent
+        setCurrentOrderId(orders[0].order_id || orders[0].id);
+        setMockGatewayOpen(true);
+      }
     } else {
       await placeOrderAPI()
     }
@@ -251,6 +269,7 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                       { id: 'cod', label: '💵 Cash on Delivery', color: '#6b7280' },
                       { id: 'gcash', label: '💙 GCash', color: '#0070FF' },
                       { id: 'maya', label: '💚 Maya', color: '#00BFA5' },
+                      { id: 'stripe', label: '💳 Card (Stripe)', color: '#6366f1' },
                     ].map(m => (
                       <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)}
                         style={{
@@ -268,7 +287,7 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                   <strong style={{ fontSize: '1.1rem' }}>Total: ₱{cartTotal.toFixed(2)}</strong>
                   <button type="button" onClick={handlePlaceOrder} disabled={isPlacingOrder}
                     style={{ background: '#059669', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                    {isPlacingOrder ? 'Placing...' : paymentMethod === 'cod' ? '✅ Place Order' : `💳 Pay with ${paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`}
+                    {isPlacingOrder ? 'Placing...' : paymentMethod === 'cod' ? '✅ Place Order' : `💳 Pay with ${paymentMethod === 'stripe' ? 'Stripe' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`}
                   </button>
                 </div>
               </div>
@@ -297,10 +316,10 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
                     <StatusBadge status={order.delivery_status} />
                     {order.payment_method && (
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                        background: order.payment_method === 'cod' ? '#f3f4f6' : order.payment_method === 'gcash' ? '#eff6ff' : '#f0fdf4',
-                        color: order.payment_method === 'cod' ? '#6b7280' : order.payment_method === 'gcash' ? '#1d4ed8' : '#059669',
+                        background: order.payment_method === 'cod' ? '#f3f4f6' : order.payment_method === 'gcash' ? '#eff6ff' : order.payment_method === 'stripe' ? '#eef2ff' : '#f0fdf4',
+                        color: order.payment_method === 'cod' ? '#6b7280' : order.payment_method === 'gcash' ? '#1d4ed8' : order.payment_method === 'stripe' ? '#4f46e5' : '#059669',
                       }}>
-                        {order.payment_method === 'cod' ? '💵 COD' : order.payment_method === 'gcash' ? '💙 GCash' : '💚 Maya'}
+                        {order.payment_method === 'cod' ? '💵 COD' : order.payment_method === 'gcash' ? '💙 GCash' : order.payment_method === 'stripe' ? '💳 Stripe' : '💚 Maya'}
                       </span>
                     )}
                     <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>{order.ordered_at}</span>
@@ -334,7 +353,14 @@ export default function ShopperDashboard({ currentUser, token, onLogout }) {
         <MockPaymentModal
           gateway={paymentMethod}
           amount={cartTotal}
-          onSuccess={async () => { setMockGatewayOpen(false); await placeOrderAPI() }}
+          orderId={currentOrderId}
+          onSuccess={async () => { 
+            setMockGatewayOpen(false); 
+            setCart([]); 
+            setShopperTab('history');
+            setPaymentMethod('cod');
+            await Promise.all([fetchShop(), fetchOrderHistory()]);
+          }}
           onCancel={() => setMockGatewayOpen(false)}
         />
       )}

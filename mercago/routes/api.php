@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RiderController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -44,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:shopper')->group(function () {
         Route::get('/shop', [OrderController::class, 'shop']);
         Route::post('/orders', [OrderController::class, 'store']);
+        Route::post('/payments/create-intent', [PaymentController::class, 'createPaymentIntent']);
+        Route::post('/payments/confirm', [PaymentController::class, 'confirmPayment']);
     });
 
     // ── Rider Routes ─────────────────────────────────────────────────────────
